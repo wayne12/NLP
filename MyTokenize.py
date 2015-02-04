@@ -15,7 +15,7 @@ def MyWordTokenize(str):
            offset += 1
     return tks
 def MySentTokenize(str):
-   return re.split(r'[\r\n]+',str)   
+   return filter(None, re.split(r'[\r\n]+',str))   
 def ContainsNum(tokens):
    result = []
    for str in tokens:
