@@ -8,7 +8,7 @@ def WordTokenize(str):
     return nltk.word_tokenize(str)
     
 def SentTokenize(str):
-    return filter(None, re.split(r'[\r\n]+',str))   #nltk.sent_tokenize(str)
+    return filter(None, re.split("[\r\n]+",str))   #nltk.sent_tokenize(str)
    
 def ExtractVocab(tks):
     #tks = nltk.word_tokenize(str)
@@ -96,3 +96,25 @@ def TrigramMod(seq, cunter, bicunter, tricunter):
         proba += math.log((tricunter[tuple([tks[x], tks[x+1], tks[x+2]])]+1) \
         /(bicunter[tuple([tks[x], tks[x+1]])]+size))
     return proba    
+    
+#paramteters:
+#     preSeq: one or two words (one for bigram, two for trigram)
+def GetMaxLikly(preSeq, cunter, bicunter, tricunter=None, ngram=2):
+    tks = SentTokenize(preSeq)
+    maxfreq=0
+    predict = ''    
+    if ngram==2:
+        sortItems = sorted(bicunter.items(), key=lambda item:item[0][0]==tks[0], reverse=True)
+        for item in sortItems:
+            if item[0][0] != tks[0]: break
+            if item[1] > max:
+                maxfreq = item[1]
+                predict = item[0][1]
+    elif ngram == 3:
+        sortItems = sorted(tricunter.items(), key=lambda item:item[0][0]==tks[0] \
+        and item[0][1]==tks[1], reverse=True)
+        for item in sortItems:
+            if item[0][0] != tks[0] or item[0][1] != tks[1]: break
+            if item[1] > max:
+                maxfreq = item[1]
+                predict = item[0][2]
