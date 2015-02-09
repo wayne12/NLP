@@ -20,14 +20,20 @@ def SentTokenize(str):
    
 def ExtractVocab(tks):
     #tks = nltk.word_tokenize(str)
-    vacb = list(set(tks)) #remove repeated words
-    vacb.insert(0,"<v>")
-    vacb.append("</v>")
-    vocSize = len(vacb)
-    with open(vocName,'wb+') as f:
-        pickle.dump(vacb,f)
-        f.close()
-    return vacb
+    vocb = list(set(tks)) #remove repeated words
+    vocSize = len(vocb)
+    vocb.insert(0,"<v>")
+    vocb.append("</v>")
+    return vocb
+    
+def GetVocSize(vocb)
+	return len(vocb)-2 #exclude '<v>'and '</v>' 
+	   
+def writeVocab(vocb,path):
+	with open(path,'wb+') as f:
+    	pickle.dump(vocb,f)
+   		f.close()
+   	return
     
 def senTokenizeToWords(sentks,ngram): #actually word tokenize with <s> and </s> symbols
     subtks = []
@@ -54,34 +60,34 @@ def fileCheck(name):
         return name
 
 #count 2 or more consecutive words
-def FreqPairCnt(tokens,len = 2,stopwFlag=False,path=''):#exclude punctuation and stopwords
+def FreqPairCnt(tokens,size = 2,stopwFlag=False,path=''):#exclude punctuation and stopwords
     if (stopwFlag == True)and(path!=''):
        f = open(path,'r')
        stopws = f.read().split()
        f.close()
     punct = list(string.punctuation)
     savetoken = tokens[:]#don't want to modify tokens[]
-    for indx, str in enumerate(savetoken):
-       if str in punct:
+    for indx, string in enumerate(savetoken):
+       if string in punct:
           savetoken.pop(indx)
-       elif (stopwFlag == True)and(str in stopws):
+       elif (stopwFlag == True)and(string in stopws):
           savetoken.pop(indx)
-    pairs = [savetoken[x:x+len] for x in xrange(0, len(savetoken)-len+1)]
+    pairs = [savetoken[x:x+size] for x in xrange(0, len(savetoken)-size+1)]
     tupPairs = [tuple(sublist) for sublist in pairs]
-    dict = dict(collections.Counter(tupPairs))
+    my_dict = dict(collections.Counter(tupPairs))
     if len == 2:
         with open(biDic,'wb+') as f:
-            pickle.dump(dict,f,pickle.HIGHEST_PROTOCOL)
+            pickle.dump(my_dict,f,pickle.HIGHEST_PROTOCOL)
     if len == 3:
         with open(triDic,'wb+') as f:
-            pickle.dump(dict,f,pickle.HIGHEST_PROTOCOL)
-    return dict
+            pickle.dump(my_dict,f,pickle.HIGHEST_PROTOCOL)
+    return my_dict
 
 def FreqCount(tokens):
-     dict = dict(collections.Counter(tokens))
+     my_dict = dict(collections.Counter(tokens))
      with open(uniDic,'wb+') as f:
-            pickle.dump(dict,f,pickle.HIGHEST_PROTOCOL)
-     return dict
+            pickle.dump(my_dict,f,pickle.HIGHEST_PROTOCOL)
+     return my_dict
 
 #implement bigram language model using Add-one smoothing
 #return: probability of sequence using log space
@@ -339,6 +345,8 @@ if __name__ == '__main__':
         words = WordTokenize(traintxt)
         sentes = SentTokenize(traintxt)
         voca = ExtractVocab(words)
+        vacSize = GetVocSize(voca)
+        writeVocab(voca,vocName)
         bigramTks = senTokenizeToWords(sentes,2)
         trigramTks = senTokenizeToWords(sentes,3)
         uniDict = FreqCount(words)
