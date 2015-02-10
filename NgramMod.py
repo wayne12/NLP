@@ -5,6 +5,7 @@ import nltk
 import math
 import random
 import pickle
+import os
 
 vocSize = 0
 vocName = "storage/vocab.voc"
@@ -26,15 +27,15 @@ def ExtractVocab(tks):
     vocb.append("</v>")
     return vocb
     
-def GetVocSize(vocb)
-	return len(vocb)-2 #exclude '<v>'and '</v>' 
-	   
+def GetVocSize(vocb):
+    return len(vocb)-2 #exclude '<v>'and '</v>'
+
 def writeVocab(vocb,path):
-	with open(path,'wb+') as f:
-    	pickle.dump(vocb,f)
-   		f.close()
-   	return
-    
+    with open(path,'wb+') as f:
+        pickle.dump(vocb,f)
+    f.close()
+    return None
+
 def senTokenizeToWords(sentks,ngram): #actually word tokenize with <s> and </s> symbols
     subtks = []
     if ngram == 2:
@@ -67,10 +68,10 @@ def FreqPairCnt(tokens,size = 2,stopwFlag=False,path=''):#exclude punctuation an
        f.close()
     punct = list(string.punctuation)
     savetoken = tokens[:]#don't want to modify tokens[]
-    for indx, string in enumerate(savetoken):
-       if string in punct:
+    for indx, chars in enumerate(savetoken):
+       if chars in punct:
           savetoken.pop(indx)
-       elif (stopwFlag == True)and(string in stopws):
+       elif (stopwFlag == True)and(chars in stopws):
           savetoken.pop(indx)
     pairs = [savetoken[x:x+size] for x in xrange(0, len(savetoken)-size+1)]
     tupPairs = [tuple(sublist) for sublist in pairs]
@@ -103,7 +104,7 @@ def BigramProb(tks, unidict, bidict):
     tks.append("</s>")
     size = len(tks)-1
     for x in range(0, size):
-        proba *= (bidict[tuple([tks[x], tks[x+1]])]+1)/(unidict[tks[x]]+vocSize)
+        proba *= (bidict.get(tuple([tks[x], tks[x+1]]),0)+1.0)/(unidict.get(tks[x],0)+vocSize)
     return proba
     
 #implement trigram language model using Add-one smoothing
@@ -127,8 +128,8 @@ def TrigramProb(tks, bidict, tridict):
 
     #for other words
     for x in range(0, len(tks)-2):
-        proba *= (tridict[tuple([tks[x], tks[x+1], tks[x+2]])]+1) \
-        /(bidict[tuple([tks[x], tks[x+1]])]+vocSize)
+        proba *= (tridict.get(tuple([tks[x], tks[x+1], tks[x+2]]),0)+1.0) \
+        /(bidict.get(tuple([tks[x], tks[x+1]]),0)+vocSize)
     return proba    
     
 #paramteters:
@@ -150,55 +151,55 @@ def GetMostLikly(tks, ndict, ngram=2,order=0,):
             sortItems = sorted(ndict.items(), key=lambda item:item[0][0]==tks[leng-1], reverse=True)
             for item in sortItems:
                 if item[0][0] != tks[leng-1]: break
-		total += item[1]
+                total += item[1]
                 if item[1] > maxfreq:
                     maxfreq = item[1]
                     predict = item[0][1]
-            proba = math.log((maxfreq+1)/(total+vocSize))
+            proba = math.log((maxfreq+1.0)/(total+vocSize))
         elif order == 1:
             sortItems = sorted(ndict.items(), key=lambda item:item[0][1]==tks[0], reverse=True)
             for item in sortItems:
                 if item[0][1] != tks[0]: break
-		total += item[1]
+                total += item[1]
                 if item[1] > maxfreq:
                     maxfreq = item[1]
                     predict = item[0][0]
-            proba = math.log((maxfreq+1)/(total+vocSize))
+            proba = math.log((maxfreq+1.0)/(total+vocSize))
     elif ngram == 3:
         if order == 0:
             sortItems = sorted(ndict.items(), key=lambda item:item[0][0]==tks[leng-2] \
             and item[0][1]==tks[leng-1], reverse=True)
             for item in sortItems:
-            	if item:item[0][0]!=tks[leng-2] or item[0][1]!=tks[leng-1]: break
-	    	total += item[1]
-            	if item[1] > maxfreq:
-                	maxfreq = item[1]
-                	predict = item[0][2]
+                if item[0][0]!=tks[leng-2] or item[0][1]!=tks[leng-1]: break
+                total += item[1]
+                if item[1] > maxfreq:
+                    maxfreq = item[1]
+                    predict = item[0][2]
         elif order == 1:
             sortItems = sorted(ndict.items(), key=lambda item:item[0][1]==tks[0] \
             and item[0][2]==tks[1], reverse=True)
             for item in sortItems:
-            	if item:item[0][1]!=tks[0] or item[0][2]!=tks[1]: break
-	    	total += item[1]
-            	if item[1] > maxfreq:
-                	maxfreq = item[1]
-                	predict = item[0][0]
+                if item[0][1]!=tks[0] or item[0][2]!=tks[1]: break
+                total += item[1]
+                if item[1] > maxfreq:
+                    maxfreq = item[1]
+                    predict = item[0][0]
         elif order == 2:
             sortItems = sorted(ndict.items(), key=lambda item:item[0][0]==tks[leng-2] \
             and item[0][2]==tks[leng-1], reverse=True)
             for item in sortItems:
-            	if item:item[0][0]!=tks[leng-2] or item[0][2]!=tks[leng-1]: break
-	    	total += item[1]
-            	if item[1] > maxfreq:
-                	maxfreq = item[1]
-                	predict = item[0][1]
-        proba = math.log((maxfreq+1)/(total+vocSize))
+                if item[0][0]!=tks[leng-2] or item[0][2]!=tks[leng-1]: break
+                total += item[1]
+                if item[1] > maxfreq:
+                    maxfreq = item[1]
+                    predict = item[0][1]
+        proba = math.log((maxfreq+1.0)/(total+vocSize))
     return (predict, proba)
 
 def RandomSents(num,ndict,ngram=2):
     result = []
     if ngram == 2:
-    	bidict = fileCheck(ndict)
+        bidict = fileCheck(ndict)
         for i in range(0, num-1):
             stop = random.randint(3,30)
             sentence = ['<s>']
@@ -253,48 +254,48 @@ def evalModels(seq, bidict,tridict=None,ngram=2):
         index = random.randint(1,len(senTks))
         tks = WordTokenize(senTks[index-1])
         delPos = index%len(tks)-1
-  	################### for bigram
-    	if delPos == 0:
-    		prePar = ['<s>']
-    		afterPar = [tks[delPos+1]]
-    	elif delPos == len(tks)-1:
-    		prePar = [tks[delPos-1]]
-    		afterPar = ['</s>']
-    	else:
-    		prePar = [tks[delPos-1]]
-    		afterPar = [tks[delPos+1]]
-    	# using previous word to predic
-      	preResult = GetMostLikly(prePar,bidict)
-      	# using following word to predic
+        ################### for bigram
+        if delPos == 0:
+            prePar = ['<s>']
+            afterPar = [tks[delPos+1]]
+        elif delPos == len(tks)-1:
+            prePar = [tks[delPos-1]]
+            afterPar = ['</s>']
+        else:
+            prePar = [tks[delPos-1]]
+            afterPar = [tks[delPos+1]]
+        # using previous word to predic
+        preResult = GetMostLikly(prePar,bidict)
+        # using following word to predic
         afterResult = GetMostLikly(afterPar,bidict)
         # pick the prediction that has maxmum probability
         if preResult[1]>afterResult[1]:
-        	biWord = preResult[0]
+            biWord = preResult[0]
         else:
-        	biWord = afterResult[0]
-  	################### for trigram
+            biWord = afterResult[0]
+        ################### for trigram
         tridict = fileCheck(tridict)
         if delPos == 0:
-    		prePar = ['<s>','<s>']
-    		midPar = ['<s>',tks[1]]
-    		afterPar = [tks[1],tks[2]]
-    	if delPos == 1:
-    		prePar = ['<s>',tks[0]]
-    		midPar = [tks[0],tks[2]]
-    		afterPar = [tks[2],tks[3]]
-    	elif delPos == len(tks)-2:
-    		prePar = [tks[delPos-2],tks[delPos-1]]
-    		midPar = [tks[delPos-1],tks[delPos+1]]
-    		afterPar = [tks[delPos+1],'</s>']
-    	elif delPos == len(tks)-1:
-    		prePar = [tks[delPos-2],tks[delPos-1]]
-    		midPar = [tks[delPos-1],'</s>']
-    		afterPar = []#don't calculate it
-    	else:
-    		prePar = [tks[delPos-2],tks[delPos-1]]
-		midPar = [tks[delPos-1],tks[delPos+1]]
-    		afterPar = [tks[delPos+1],tks[delPos+2]]
-    	# using previous 2 words to predic
+            prePar = ['<s>','<s>']
+            midPar = ['<s>',tks[1]]
+            afterPar = [tks[1],tks[2]]
+        if delPos == 1:
+            prePar = ['<s>',tks[0]]
+            midPar = [tks[0],tks[2]]
+            afterPar = [tks[2],tks[3]]
+        elif delPos == len(tks)-2:
+            prePar = [tks[delPos-2],tks[delPos-1]]
+            midPar = [tks[delPos-1],tks[delPos+1]]
+            afterPar = [tks[delPos+1],'</s>']
+        elif delPos == len(tks)-1:
+            prePar = [tks[delPos-2],tks[delPos-1]]
+            midPar = [tks[delPos-1],'</s>']
+            afterPar = []#don't calculate it
+        else:
+            prePar = [tks[delPos-2],tks[delPos-1]]
+            midPar = [tks[delPos-1],tks[delPos+1]]
+            afterPar = [tks[delPos+1],tks[delPos+2]]
+        # using previous 2 words to predic
         preResult = GetMostLikly(prePar,tridict)
         # using a previous word and a following word to predic
         midResult = GetMostLikly(midPar,tridict)
@@ -304,42 +305,43 @@ def evalModels(seq, bidict,tridict=None,ngram=2):
         maxpro = 0
         triWord = ''
         if preResult[1] > maxpro:
-        	maxpro = preResult[1]
-        	triWord = preResult[0]
+            maxpro = preResult[1]
+            triWord = preResult[0]
         if midResult[1] > maxpro:
-        	maxpro = midResult[1]
-        	triWord = midResult[0]
+            maxpro = midResult[1]
+            triWord = midResult[0]
         if afterResult[1] > maxpro:
-        	maxpro = afterResult[1]
-        	triWord = afterResult[0]
+            maxpro = afterResult[1]
+            triWord = afterResult[0]
         ################## evaluate according to result
         print ("**********************************")
         print ("The original sentence is: "+' '.join(tks))
-        print ("Result of Bigram is: "+' '.join(tks[:delPos]+biWord+\
+        print ("Result of Bigram is: "+' '.join(tks[:delPos])+biWord+\
         ' '.join(tks[delPos+1:]))
-        print ("Result of Trigram is: "+' '.join(tks[:delPos]+triWord+\
+        print ("Result of Trigram is: "+' '.join(tks[:delPos])+triWord+\
         ' '.join(tks[delPos+1:]))
         if biWord == tks[delPos]:
-        	biCnt += 1
-        	print ("Bigram model match! ")
+            biCnt += 1
+            print ("Bigram model match! ")
         if triWord == tks[delPos]:
-        	triCnt	+= 1
-        	print ("Trigram model match! ")
+            triCnt	+= 1
+            print ("Trigram model match! ")
     print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
     print("Total sentens number: 40")
     print("Bigram matched: " + str(biCnt))
     print("Trigram matched: " + str(triCnt))
     if biCnt > triCnt:
-    	print("Bigram has better performance!")
+        print("Bigram has better performance!")
     elif biCnt < triCnt:
-    	print("Trigram has better performance!")
+        print("Trigram has better performance!")
     else:
-    	print("Bigram and Trigram have the same performance")
+        print("Bigram and Trigram have the same performance")
     return
 if __name__ == '__main__':
     from sys import argv
     if len(argv)>1:
-        f = open(argv[1],'r')
+        print (argv[1])
+        f = open(os.path.join(argv[1],'train.txt'),'r')
         traintxt = f.read()
         f.close()
         words = WordTokenize(traintxt)
@@ -354,7 +356,7 @@ if __name__ == '__main__':
         triDict = FreqPairCnt(trigramTks,3)
         result2 = RandomSents(50,biDict)
         result3 = RandomSents(50,triDict,3)
-        f = open(argv[2],'r')
+        f = open(os.path.join(argv[1],'test.txt'),'r')
         str1 = f.read()
         f.close()
         evalModels(str1)
