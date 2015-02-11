@@ -8,10 +8,10 @@ import pickle
 import os
 
 vocSize = 0
-vocName = "storage/vocab.voc"
-uniDic = "storage/uniDict.dic"
-biDic = "storage/biDict.dic"
-triDic = "storage/triDict.dic"
+vocName = "storage/a2q1/vocab.voc"
+uniDicName = "storage/a2q1/uniDict.dic"
+biDicName = "storage/a2q1/biDict.dic"
+triDicName = "storage/a2q1/triDict.dic"
 
 def WordTokenize(str):
     return nltk.word_tokenize(str)
@@ -22,19 +22,13 @@ def SentTokenize(str):
 def ExtractVocab(tks):
     #tks = nltk.word_tokenize(str)
     vocb = list(set(tks)) #remove repeated words
-    vocSize = len(vocb)
-    vocb.insert(0,"<v>")
-    vocb.append("</v>")
+    vocb.insert(0,"<s>")
+    vocb.append("</s>")
     return vocb
     
 def GetVocSize(vocb):
-    return len(vocb)-2 #exclude '<v>'and '</v>'
+    return len(vocb)-2 #exclude '<s>'and '</s>'
 
-def writeVocab(vocb,path):
-    with open(path,'wb+') as f:
-        pickle.dump(vocb,f)
-    f.close()
-    return None
 
 def senTokenizeToWords(sentks,ngram): #actually word tokenize with <s> and </s> symbols
     subtks = []
@@ -60,6 +54,9 @@ def fileCheck(name):
     else:
         return name
 
+def FreqCount(tokens):
+     return dict(collections.Counter(tokens))
+
 #count 2 or more consecutive words
 def FreqPairCnt(tokens,size = 2,stopwFlag=False,path=''):#exclude punctuation and stopwords
     if (stopwFlag == True)and(path!=''):
@@ -75,20 +72,7 @@ def FreqPairCnt(tokens,size = 2,stopwFlag=False,path=''):#exclude punctuation an
           savetoken.pop(indx)
     pairs = [savetoken[x:x+size] for x in xrange(0, len(savetoken)-size+1)]
     tupPairs = [tuple(sublist) for sublist in pairs]
-    my_dict = dict(collections.Counter(tupPairs))
-    if len == 2:
-        with open(biDic,'wb+') as f:
-            pickle.dump(my_dict,f,pickle.HIGHEST_PROTOCOL)
-    if len == 3:
-        with open(triDic,'wb+') as f:
-            pickle.dump(my_dict,f,pickle.HIGHEST_PROTOCOL)
-    return my_dict
-
-def FreqCount(tokens):
-     my_dict = dict(collections.Counter(tokens))
-     with open(uniDic,'wb+') as f:
-            pickle.dump(my_dict,f,pickle.HIGHEST_PROTOCOL)
-     return my_dict
+    return dict(collections.Counter(tupPairs))
 
 #implement bigram language model using Add-one smoothing
 #return: probability of sequence using log space
@@ -130,12 +114,73 @@ def TrigramProb(tks, bidict, tridict):
     for x in range(0, len(tks)-2):
         proba *= (tridict.get(tuple([tks[x], tks[x+1], tks[x+2]]),0)+1.0) \
         /(bidict.get(tuple([tks[x], tks[x+1]]),0)+vocSize)
-    return proba    
-    
+    return proba
+
+def predictWord(tks, ndict, ngram=2):
+    #tks = WordTokenize(Seq)#if preSeq is begin, it should include '<s>'
+    maxfreq = 0
+    baseline = 30
+    proba = []
+    predict = []
+    leng = len(tks)
+    total = 0
+    if leng < 1:
+        return (None,0)
+    searchResult = []
+
+    if ngram==2:
+        for key,val in ndict.iteritems():
+            if key[0] == tks[leng-1]:
+                total += val
+                searchResult.append((key,val))
+        sortItems = sorted(searchResult,key = lambda item:item[1],reverse=True)
+        size = len(sortItems)
+        size = size/3
+        if size != 0:
+            stop = random.randint(0,size)
+        else: stop = 0
+        proba = math.log((sortItems[stop][1]+1.0)/(total+vocSize))
+        predict = sortItems[stop][0][1]
+
+    elif ngram == 3:
+        for key,val in ndict.iteritems():
+            if key[0] == tks[leng-2] and key[1] == tks[leng-1]:
+                total += val
+                searchResult.append((key,val))
+        sortItems = sorted(searchResult,key = lambda item:item[1],reverse=True)
+        size = len(sortItems)
+        size = size/3
+        if size != 0:
+            stop = random.randint(0,size)
+        else: stop = 0
+        proba = math.log((sortItems[stop][1]+1.0)/(total+vocSize))
+        predict = sortItems[stop][0][2]
+    if False:'''
+    if ngram==2:
+        sortItems = sorted(ndict.items(), key=lambda item:item[0][0]==tks[leng-1], reverse=True)
+        for item in sortItems:
+            if item[0][0] != tks[leng-1]: break
+            val = item[1]
+            total += val
+            if val > maxfreq:
+            if val > baseline:
+                proba.append(float(math.log((val+1.0)/(total+vocSize))))
+                predict.append(item[0][1])
+    elif ngram == 3:
+        sortItems = sorted(ndict.items(), key=lambda item:item[0][0]==tks[leng-2] \
+                                                          and item[0][1]==tks[leng-1], reverse=True)
+        for item in sortItems:
+            if item[0][0]!=tks[leng-2] or item[0][1]!=tks[leng-1]: break
+            total += item[1]
+            if item[1] > maxfreq:
+                proba.append(float(math.log((item[1]+1.0)/(total+vocSize))))
+                predict.append(item[0][2])
+                '''
+    return(predict,proba)
 #paramteters:
 #     preSeq: one or two words (one for bigram, two for trigram)
 #     order: 0(pre sequence); 1(following sequence); 2(around sequence)
-def GetMostLikly(tks, ndict, ngram=2,order=0,):
+def GetMostlikly(tks, ndict, ngram=2,order=0,):
     #tks = WordTokenize(Seq)#if preSeq is begin, it should include '<s>'
     maxfreq=0
     proba = 0.0
@@ -199,13 +244,13 @@ def GetMostLikly(tks, ndict, ngram=2,order=0,):
 def RandomSents(num,ndict,ngram=2):
     result = []
     if ngram == 2:
-        bidict = fileCheck(ndict)
+        #bidict = fileCheck(ndict)
         for i in range(0, num-1):
-            stop = random.randint(3,30)
+            stop = random.randint(4,35)
             sentence = ['<s>']
             proba = 0.0
             for j in range(0,stop):
-                word = GetMostLikly(sentence, bidict)
+                word = predictWord(sentence, ndict)
                 sentence.append(word[0])
                 proba += word[1]
                 if word[0] == '</s>' or j == stop-1:
@@ -215,13 +260,13 @@ def RandomSents(num,ndict,ngram=2):
             if sentence[end-1] == '</s>':end = end-1
             result.append((sentence[1:end],proba))
     elif ngram == 3:
-        tridict = fileCheck(ndict)
+        #tridict = fileCheck(ndict)
         for i in range(0, num-1):
             stop = random.randint(3,30)
             sentence = ['<s>', '<s>']
             proba = 0.0
             for j in range(0,stop):
-                word = GetMostLikly(sentence,tridict,ngram)
+                word = predictWord(sentence,ndict,ngram)
                 sentence.append(word[0])
                 proba += word[1]
                 if word[0] == '</s>' or j == stop-1:
@@ -231,15 +276,14 @@ def RandomSents(num,ndict,ngram=2):
             if sentence[end-1] == '</s>':end = end-1
             result.append((sentence[2:end],proba))
     return result
-def getPerplexity(seq, unidict, bidict,tridict=None,ngram=2):
-    unidict = fileCheck(unidict)
+def getPerplexity(seq, bidict,ndict,ngram=2):
+    ndict = fileCheck(ndict)
     bidict = fileCheck(bidict)
     tks = WordTokenize(seq)
     if ngram == 2:
-        proba = BigramProb(tks,unidict,bidict)
+        proba = BigramProb(tks,ndict,bidict)
     elif ngram == 3:
-        tridict = fileCheck(tridict)
-        proba = TrigramProb(tks,bidict,tridict)
+        proba = TrigramProb(tks,bidict,ndict)
     perpl = math.pow(proba,(-1/len(tks)))
     return perpl
 # evaluate bigram model and trigram model by predict word_tokenize
@@ -265,9 +309,9 @@ def evalModels(seq, bidict,tridict=None,ngram=2):
             prePar = [tks[delPos-1]]
             afterPar = [tks[delPos+1]]
         # using previous word to predic
-        preResult = GetMostLikly(prePar,bidict)
+        preResult = GetMostlikly(prePar,bidict)
         # using following word to predic
-        afterResult = GetMostLikly(afterPar,bidict)
+        afterResult = GetMostlikly(afterPar,bidict)
         # pick the prediction that has maxmum probability
         if preResult[1]>afterResult[1]:
             biWord = preResult[0]
@@ -296,11 +340,11 @@ def evalModels(seq, bidict,tridict=None,ngram=2):
             midPar = [tks[delPos-1],tks[delPos+1]]
             afterPar = [tks[delPos+1],tks[delPos+2]]
         # using previous 2 words to predic
-        preResult = GetMostLikly(prePar,tridict)
+        preResult = GetMostlikly(prePar,tridict)
         # using a previous word and a following word to predic
-        midResult = GetMostLikly(midPar,tridict)
+        midResult = GetMostlikly(midPar,tridict)
         # using following 2 words to predic
-        afterResult = GetMostLikly(afterPar,tridict)
+        afterResult = GetMostlikly(afterPar,tridict)
         # pick the prediction that has maxmum probability
         maxpro = 0
         triWord = ''
@@ -337,26 +381,77 @@ def evalModels(seq, bidict,tridict=None,ngram=2):
     else:
         print("Bigram and Trigram have the same performance")
     return
+
+def writeToFile(data,path,protocal=0):
+    with open(path,'wb+') as f:
+        pickle.dump(data,f,protocal)
+        f.close()
+    return None
+
+def readFromFile(name):
+    with open(name,'rb') as f:
+        dat = pickle.load(f)
+        f.close()
+    return dat
+
+def trainModel(traintxt):
+    words = WordTokenize(traintxt)
+    sentes = SentTokenize(traintxt)
+    voca = ExtractVocab(words)
+
+    bigramTks = senTokenizeToWords(sentes,2)
+    trigramTks = senTokenizeToWords(sentes,3)
+    uniDict = FreqCount(words)
+    biDict = FreqPairCnt(bigramTks)
+    triDict = FreqPairCnt(trigramTks,3)
+
+    writeToFile(voca,vocName)
+    writeToFile(uniDict,uniDicName,pickle.HIGHEST_PROTOCOL)
+    writeToFile(biDict,biDicName,pickle.HIGHEST_PROTOCOL)
+    writeToFile(triDict,triDicName,pickle.HIGHEST_PROTOCOL)
+    return None
+
+def testModel(str1):
+    voca = readFromFile(vocName)
+    uniDict = readFromFile(uniDicName)
+    biDict = readFromFile(biDicName)
+    triDict = readFromFile(triDicName)
+
+    global vocSize
+    vocSize = GetVocSize(voca)
+
+    result2 = RandomSents(50,biDict)
+    result3 = RandomSents(50,triDict,3)
+
+    print("Sentences generate by Bigram and their Probabilities :")
+    for item in result2:
+        print (' '.join(item[0])+" : "+str(item[1]))
+
+    print("Sentences generate by Trigram and their Probabilities :")
+    for item in result3:
+        print (' '.join(item[0])+" : "+str(item[1]))
+
+    PPL2 = getPerplexity(str1,biDict,uniDict)
+    PPL3 = getPerplexity(str1,biDict,triDict)
+    print("Perplexity of Bigram is: " + str(PPL2))
+    print("Perplexity of Trigram is: " + str(PPL3))
+
+    evalModels(str1)
+
+    return None
+
 if __name__ == '__main__':
     from sys import argv
     if len(argv)>1:
         print (argv[1])
-        f = open(os.path.join(argv[1],'train.txt'),'r')
-        traintxt = f.read()
-        f.close()
-        words = WordTokenize(traintxt)
-        sentes = SentTokenize(traintxt)
-        voca = ExtractVocab(words)
-        vacSize = GetVocSize(voca)
-        writeVocab(voca,vocName)
-        bigramTks = senTokenizeToWords(sentes,2)
-        trigramTks = senTokenizeToWords(sentes,3)
-        uniDict = FreqCount(words)
-        biDict = FreqPairCnt(bigramTks)
-        triDict = FreqPairCnt(trigramTks,3)
-        result2 = RandomSents(50,biDict)
-        result3 = RandomSents(50,triDict,3)
-        f = open(os.path.join(argv[1],'test.txt'),'r')
-        str1 = f.read()
-        f.close()
-        evalModels(str1)
+        # with open(os.path.join(argv[1],'train.txt'),'r') as f:
+        #     traintxt = f.read()
+        #     f.close()
+        #     trainModel(traintxt)
+
+        with open(os.path.join(argv[1],'test.txt'),'r') as f:
+            str1 = f.read()
+            f.close()
+            testModel(str1)
+
+
